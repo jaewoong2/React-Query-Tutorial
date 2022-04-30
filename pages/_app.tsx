@@ -1,30 +1,25 @@
-/* eslint-disable react/jsx-props-no-spreading */
 // _app.tsx
 import '@styles/globals.css';
 
-import { FC, useState } from 'react';
+import { FC } from 'react';
 import { AppProps } from 'next/app';
-import { QueryClientProvider, QueryClient } from 'react-query';
+import { DefaultOptions, QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
-import { Hydrate } from 'react-query/hydration';
+
+// staleTime 을 지정해줘야 쓸대 없는 re-fetch를 막을 수 있음 ( 똑같은 key를 fetch를 연속으로 안보냄 )
+const defaultOptions: DefaultOptions = {
+  queries: {
+    staleTime: 5 * 1000,
+  },
+};
+
+const reactQueryClient = new QueryClient({ defaultOptions });
 
 const MyApp: FC<AppProps> = ({ Component, pageProps }: AppProps) => {
-  const [queryClient] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            staleTime: 20 * 1000,
-          },
-        },
-      })
-  );
   return (
-    <QueryClientProvider client={queryClient}>
-      <Hydrate state={pageProps.dehydratedState}>
-        <ReactQueryDevtools initialIsOpen={false} />
-        <Component {...pageProps} />
-      </Hydrate>
+    <QueryClientProvider client={reactQueryClient}>
+      <ReactQueryDevtools initialIsOpen={true} />
+      <Component {...pageProps} />
     </QueryClientProvider>
   );
 };

@@ -1,54 +1,54 @@
-// index.tsx
-import React, { FC } from 'react';
+import { IPerson } from '@src/lib/Interfaces/IPerson';
+import { NextPage } from 'next';
 import { useRouter } from 'next/dist/client/router';
-import Link from 'next/link';
+import React, { useEffect } from 'react';
 import { useQuery } from 'react-query';
-import { IPerson } from '@src/lib/interfaces/IPerson';
 
-const getPersonById = async (id: string | string[] | undefined): Promise<IPerson> => {
-  if (typeof id === 'string') {
-    const res = await fetch(`/api/person/${id}`);
-    if (res.ok) {
+type PersonProps = {} & NextPage;
+
+const getPersonById = async (
+  id: string | string[] | undefined
+): Promise<IPerson> => {
+  try {
+    if (typeof id === 'string') {
+      const res = await fetch(`/api/person/${id}`);
       return res.json();
     }
-    throw new Error('error fetching user with id');
+    throw new Error('invalid id');
+  } catch (err) {
+    throw new Error('Error !');
   }
-  throw new Error('invalid id'); // need to throw because react-query functions need to have error thrown to know its in error state
 };
 
-const PersonPage: FC = () => {
+const Person: PersonProps = () => {
   const {
     query: { id },
   } = useRouter();
-
-  const { isLoading, isError, error, data } = useQuery<IPerson, Error>(['person', id], () => getPersonById(id), {
-    enabled: !!id, // enabled will stop a query from running, so will only call when id is available (dependent queries)
-  });
-
-  // Cached key would be ['person', ]
-  // const name = 'Tlw';
-  // const { isLoading, isError, error, data } = useQuery<IPerson, Error>(['person', id, name], () => getPersonById(id, name), {
-  //   enabled: Boolean(id), // enabled will stop a query from running, so will only call when id is available
-  // });
+  const { data, error, isLoading, isError } = useQuery<IPerson, Error, IPerson>(
+    ['person', id],
+    () => getPersonById(id),
+    { enabled: !!id }
+  );
 
   if (isLoading) {
     return (
       <div>
-        <p>Loading...</p>
+        <p>Loading....</p>
       </div>
     );
   }
-  if (isError) return <p>Boom boy: Error is -- {error?.message}</p>;
+
+  if (isError) {
+    return <p>Boom! boy: Error is -- {error?.message}</p>;
+  }
+
   return (
     <>
-      <Link href="/">
-        <a>Home</a>
-      </Link>
-      <p>{data?.id}</p>
-      <p>{data?.name}</p>
-      <p>{data?.age}</p>
+      <div>{data?.id}</div>
+      <div>{data?.name}</div>
+      <div>{data?.age}</div>
     </>
   );
 };
 
-export default PersonPage;
+export default Person;
