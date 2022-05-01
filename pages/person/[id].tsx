@@ -1,7 +1,7 @@
 import { IPerson } from '@src/lib/Interfaces/IPerson';
 import { NextPage } from 'next';
 import { useRouter } from 'next/dist/client/router';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useQuery } from 'react-query';
 
 type PersonProps = {} & NextPage;

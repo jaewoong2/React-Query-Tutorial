@@ -5,7 +5,7 @@ import { useQuery } from 'react-query';
 
 type PersonProps = {} & NextPage;
 
-const fetchPerson = async (): Promise<IPerson> => {
+export const fetchPerson = async (): Promise<IPerson> => {
   try {
     const res = await fetch('/api/person');
     if (res.ok) {
@@ -17,8 +17,9 @@ const fetchPerson = async (): Promise<IPerson> => {
   }
 };
 
+// react-query cache 관련 링크 https://velog.io/@yrnana/React-Query에서-staleTime과-cacheTime의-차이
+// readt-query cache https://thinkforthink.tistory.com/340
 const Person: PersonProps = () => {
-  // react-query cahce 관련 링크 https://velog.io/@yrnana/React-Query에서-staleTime과-cacheTime의-차이
   // useQuery<dataType, ErrorType, queryFuntionType (not declare => same dataType), QueryKeyType (not delcare => QueryKeyType)>
 
   // default stale time 5s => 5초마다 re-fetch
