@@ -1,52 +1,148 @@
-import { IPerson } from '@src/lib/Interfaces/IPerson';
-import { NextPage } from 'next';
-import React, { useEffect } from 'react';
-import { useQuery } from 'react-query';
-
-type PersonProps = {} & NextPage;
+import React, { FC, useState } from 'react';
+import Link from 'next/link';
+import {
+  Query,
+  useQueries,
+  useQuery,
+  useQueryClient,
+  UseQueryResult,
+} from 'react-query';
+import { IPerson, ITodo } from '@src/lib/Interfaces';
 
 export const fetchPerson = async (): Promise<IPerson> => {
-  try {
-    const res = await fetch('/api/person');
-    if (res.ok) {
-      return res.json();
-    }
-    throw new Error('Network response not ok!');
-  } catch (err) {
-    throw new Error('Error !');
+  const res = await fetch(`/api/person`);
+  // need to do this with fetch since doesn't automatically throw errors axios and graphql-request do
+  if (res.ok) {
+    return res.json();
   }
+  throw new Error('Network response not ok'); // need to throw because react-query functions need to have error thrown to know its in error state
 };
 
-// react-query cache 관련 링크 https://velog.io/@yrnana/React-Query에서-staleTime과-cacheTime의-차이
-// readt-query cache https://thinkforthink.tistory.com/340
-const Person: PersonProps = () => {
-  // useQuery<dataType, ErrorType, queryFuntionType (not declare => same dataType), QueryKeyType (not delcare => QueryKeyType)>
+const fetchTodo = async (): Promise<ITodo> => {
+  const res = await fetch(`/api/todo`);
+  // need to do this with fetch since doesn't automatically throw errors axios and graphql-request do
+  if (res.ok) {
+    return res.json();
+  }
+  throw new Error('Network response not ok'); // need to throw because react-query functions need to have error thrown to know its in error state
+};
 
-  // default stale time 5s => 5초마다 re-fetch
-  const { data, error, status, isLoading, isError } = useQuery<IPerson, Error>(
+const PersonPage: FC = () => {
+  const [enabled, setEnabled] = useState(true);
+  const {
+    isLoading,
+    isError,
+    isSuccess: personSuccess,
+    error,
+    data,
+  }: UseQueryResult<IPerson, Error> = useQuery<IPerson, Error>(
     'person',
-    fetchPerson
+    fetchPerson,
+    {
+      enabled,
+    }
   );
+
+  const {
+    isSuccess: todoSuccess,
+    data: todoData,
+  }: UseQueryResult<ITodo, Error> = useQuery<ITodo, Error>('todo', fetchTodo, {
+    enabled,
+  });
+
+  // dynamic parallel queries wooooo
+
+  // 쿼리를 3번 날린다.
+  const userQueries = useQueries(
+    ['1', '2', '3'].map((id) => {
+      return {
+        queryKey: ['todo', { page: id }],
+        queryFn: () => {
+          return id;
+        },
+        enabled,
+      };
+    })
+  );
+
+  const queryClient = useQueryClient();
+
+  //   const { status, error, data }: UseQueryResult<string, Error> = useQuery<IPerson, Error, string>(
+  //     'person',
+  //     async () => {
+  //       const res = await fetch('/api/person');
+  //       return res.json();
+  //     },
+  //     {
+  //       select: (person) => person.name,
+  //     }
+  //   );
+
+  // if (personSuccess && todoSuccess) {
+  //   queryClient.invalidateQueries();
+  // }
+
+  if (personSuccess && todoSuccess && enabled) {
+    setEnabled(false);
+  }
 
   if (isLoading) {
     return (
       <div>
-        <p>Loading....</p>
+        <p>Loading...</p>
       </div>
     );
   }
-
-  if (isError) {
-    return <p>Boom! boy: Error is -- {error?.message}</p>;
-  }
+  if (isError) return <p>Boom boy: Error is -- {error?.message}</p>;
 
   return (
     <>
-      <div>{data?.id}</div>
-      <div>{data?.name}</div>
-      <div>{data?.age}</div>
+      <Link href="/">
+        <a>Home</a>
+      </Link>
+      <br />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          queryClient.invalidateQueries();
+        }}
+      >
+        Invalidate Queries
+      </button>
+      <br />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          queryClient.invalidateQueries('person');
+        }}
+      >
+        Invalidate Person
+      </button>
+      <br />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.preventDefault();
+          queryClient.invalidateQueries({
+            // invalidate 시키고 싶은 query를 가져온다.
+            // query의 key
+            predicate: (query: Query<any, any, any, any>) => {
+              // eslint-disable-next-line radix
+              return parseInt(query?.queryKey[1].page) % 2 === 1;
+            },
+          });
+        }}
+      >
+        Invalidate Todo
+      </button>
+      <p>{data?.id}</p>
+      <p>{data?.name}</p>
+      <p>{data?.age}</p>
+      <h1>Person component</h1>
     </>
   );
 };
 
-export default Person;
+export default PersonPage;

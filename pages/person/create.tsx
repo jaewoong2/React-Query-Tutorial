@@ -1,11 +1,12 @@
 import { IPerson } from '@src/lib/Interfaces/IPerson';
 import { NextPage } from 'next';
-import React, { useState } from 'react';
+import React, { FormEventHandler, useState } from 'react';
 import {
   useMutation,
   UseMutationResult,
   useQuery,
   useQueryClient,
+  UseQueryResult,
 } from 'react-query';
 import { fetchPerson } from './index';
 
@@ -14,83 +15,105 @@ type CreatePersonProps = {} & NextPage<IPerson>;
 interface IContext {
   id: string;
 }
-
-const createPerson = async ({ id, name, age }: IPerson): Promise<IPerson> => {
-  try {
-    const res: Response = await fetch('/api/person/create', {
-      method: 'POST',
-      body: JSON.stringify({ id, name, age }),
-    });
-
-    if (res.ok) {
-      return res.json();
-    }
-    throw new Error('Error Create Person Page');
-  } catch (err) {
-    throw new Error('Error Create Person Err');
+const createPerson = async (
+  id: string,
+  name: string,
+  age: number
+): Promise<IPerson> => {
+  const res: Response = await fetch('/api/person/create', {
+    method: 'POST',
+    body: JSON.stringify({
+      id,
+      name,
+      age,
+    }),
+  });
+  if (res.ok) {
+    return res.json();
   }
+  throw new Error('Error create person');
 };
 
-const CreatePersonPage: CreatePersonProps = ({}) => {
+interface ICreatePersonParams {
+  id: string;
+  name: string;
+  age: number;
+}
+
+interface IContext {
+  previousPerson: IPerson | undefined;
+}
+
+const CreatePage: CreatePersonProps = () => {
   const [enabled, setEnabled] = useState(true);
-  const { data: queryData } = useQuery<IPerson, Error>('person', fetchPerson, {
+  const { data: queryData }: UseQueryResult<IPerson, Error> = useQuery<
+    IPerson,
+    Error
+  >('person', fetchPerson, {
     enabled,
   });
 
   const queryClient = useQueryClient();
 
-  // useMutation(key, queryfetchFunction, context(== lifecycle) )
-  // mutation 은 uniqueKey를 따로 설정 하지 않아도 ㄱㅊ
-  const mutation: UseMutationResult<IPerson, Error, IPerson> = useMutation<
-    IPerson,
-    Error,
-    IPerson,
-    IContext | undefined
-  >(
-    'createPerson',
-    async ({ id, name, age }) => createPerson({ id, name, age }),
-    {
-      // before mutation
-      onMutate: (variables: IPerson) => {
-        console.log('mutation variables', variables);
-        return { id: '7' };
-      },
-      // on success of mutation
-      onSuccess: (
-        data: IPerson,
-        _variables: IPerson,
-        _context: IContext | undefined
-      ) => {
-        // queryClient.invalidateQueries('person');
-        // queryClient 를 통해서 'person' key를 갖고 있는 query에 data를 주입
-        // useQuery('person') 에서 return 하는 data의 값이 setQueryData('person', data) 으로 설정한 data와 같다.
-        queryClient.setQueryData('person', data);
-        return console.log('mutation data', data);
-      },
-      // if mutation errors
-      onError: (
-        error: Error,
-        _variables: IPerson,
-        context: IContext | undefined
-      ) => {
-        console.log('error: ', error.message);
-        return console.log(
-          `rolling back optimistic update with id: ${context?.id}`
-        );
-      },
-      // no matter if error or success run me
-      onSettled: (
-        _data: IPerson | undefined,
-        _error: Error | null,
-        _variables: IPerson | undefined,
-        _context: IContext | undefined
-      ) => {
-        return console.log('complete mutation!');
-      },
-    }
-  );
+  const mutation: UseMutationResult<IPerson, Error, ICreatePersonParams> =
+    useMutation<IPerson, Error, ICreatePersonParams, IContext | undefined>(
+      'createPerson',
+      async ({ id, name, age }) => createPerson(id, name, age),
+      {
+        // before mutation
+        onMutate: async (_variables: ICreatePersonParams) => {
+          // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+          await queryClient.cancelQueries('person');
 
-  const onSubmit: React.FormEventHandler<HTMLFormElement> = async (
+          // Snapshot the previous value
+          const previousPerson: IPerson | undefined =
+            queryClient.getQueryData('person');
+
+          const newPerson: IPerson = { age: 24, id: '2', name: '' };
+
+          queryClient.setQueryData('person', newPerson);
+          // Return a context object with the snapshotted value
+          return {
+            previousPerson,
+          };
+        },
+        // on success of mutation
+        onSuccess: (
+          data: IPerson,
+          _variables: ICreatePersonParams,
+          _context: IContext | undefined
+        ) => {
+          // queryClient.invalidateQueries('person');
+          queryClient.setQueryData('person', data);
+          return console.log('mutation data', data);
+        },
+        // if mutation errors
+        onError: (
+          error: Error,
+          _variables: ICreatePersonParams,
+          context: IContext | undefined
+        ) => {
+          console.log('error: ', error.message);
+
+          // 에러가 나면 onMutate 에서 return 한 context= {prevoiusPerson: previousPerson} 을 넘겨준다.
+          queryClient.setQueryData('person', context?.previousPerson);
+          return console.log(
+            `rolling back optimistic update with id: ${context?.previousPerson?.id}`
+          );
+        },
+        // no matter if error or success run me
+        onSettled: (
+          _data: IPerson | undefined,
+          _error: Error | null,
+          _variables: ICreatePersonParams | undefined,
+          _context: IContext | undefined
+        ) => {
+          return console.log('complete mutation!');
+        },
+      }
+    );
+
+  const onSubmit: FormEventHandler<HTMLFormElement> = async (
     event: React.SyntheticEvent
   ) => {
     event.preventDefault();
@@ -127,7 +150,6 @@ const CreatePersonPage: CreatePersonProps = ({}) => {
         type="button"
         onClick={() => {
           setEnabled(false);
-          // query키를 날려버리는 Method
           queryClient.invalidateQueries('person');
         }}
       >
@@ -158,4 +180,4 @@ const CreatePersonPage: CreatePersonProps = ({}) => {
   );
 };
 
-export default CreatePersonPage;
+export default CreatePage;
