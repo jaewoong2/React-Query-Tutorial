@@ -63,6 +63,7 @@ const CreatePersonPage: CreatePersonProps = ({}) => {
       ) => {
         // queryClient.invalidateQueries('person');
         // queryClient 를 통해서 'person' key를 갖고 있는 query에 data를 주입
+        // useQuery('person') 에서 return 하는 data의 값이 setQueryData('person', data) 으로 설정한 data와 같다.
         queryClient.setQueryData('person', data);
         return console.log('mutation data', data);
       },
